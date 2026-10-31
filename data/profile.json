@@ -1,0 +1,54 @@
+{
+  "name": "Shaaz",
+  "location": "Bengaluru, India",
+  "education": {
+    "degree": "B.Tech in Computer Science and Engineering",
+    "institution": "Newton School of Technology (SVYASA)",
+    "year": "First year"
+  },
+  "skills": ["React", "Vite", "Python", "Machine Learning"],
+  "work": "Freelance design and development",
+  "projects": [
+    {
+      "name": "Hybrid aerial-underwater drone",
+      "description": "A hybrid drone project exploring aerial and underwater operation.",
+      "category": "Robotics",
+      "status": "TODO: Add the current stage, your contribution, and verified outcomes."
+    },
+    {
+      "name": "LogiSense",
+      "description": "A project called LogiSense.",
+      "category": "Software",
+      "details": "TODO: Add the problem, your contribution, stack, and verified outcomes."
+    },
+    {
+      "name": "Ypay",
+      "description": "A project called Ypay.",
+      "category": "Software",
+      "details": "TODO: Add the problem, your contribution, stack, and verified outcomes."
+    },
+    {
+      "name": "Waste-segregation hackathon app",
+      "description": "A waste-segregation application built for a hackathon.",
+      "category": "Hackathon",
+      "details": "TODO: Add the event, your role, and verified results."
+    },
+    {
+      "name": "WorldQuant BRAIN alpha research",
+      "description": "Alpha research on WorldQuant BRAIN.",
+      "category": "Quant research",
+      "details": "TODO: Add the research approach and any shareable, verified results."
+    }
+  ],
+  "stories": {
+    "mistakes": "TODO: Add a real mistake, what happened, and what you learned.",
+    "risksTaken": "TODO: Add a real risk you took and its outcome.",
+    "ownership": "TODO: Add an example of taking ownership and what you did."
+  },
+  "contact": {
+    "email": "TODO: Add a public contact email.",
+    "github": "TODO: Add your GitHub URL.",
+    "linkedin": "TODO: Add your LinkedIn URL.",
+    "resume": "TODO: Add a public resume URL."
+  }
+}
