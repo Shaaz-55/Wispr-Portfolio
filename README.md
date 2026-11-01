@@ -60,28 +60,44 @@ The grounding prompt is in `server/index.ts`. The deterministic fact selector is
 
 ## Scene and scroll behavior
 
-The story occupies **400vh**: a 100vh stage is pinned for 300vh of travel. One scrubbed ScrollTrigger writes progress `p` into a ref. The complete scene can be evaluated at any progress without playing earlier frames.
+The story occupies **400vh**: a 100vh stage is pinned for 300vh of travel. One ScrollTrigger supplies progress. Every visual state—including cloth, flame noise, the cut, spark physics and cooling—is a pure function of that progress. Stopping scroll holds the frame; reversing scroll reconstructs it exactly.
 
 | Progress | Beat |
 | --- | --- |
-| 0.00–0.12 | Idle stance, drifting embers, camera push |
-| 0.12–0.30 | Joint-based wind-up, embers attracted to the blade, rising bloom |
-| 0.30–0.55 | Slash and fire ribbon; impact at 0.42 |
-| 0.55–0.75 | Clipped text halves separate and tilt; molten cut and seam sparks |
-| 0.75–1.00 | Camera travels through the cut into the conversation |
+| 0.00–0.10 | Low, down-left red blade; two-line white name; figure about 80% of desktop height at x≈65% |
+| 0.10–0.28 | Blade rises above the head, then coils behind the shoulder |
+| 0.28–0.36 | Hips lead the body turn and planted lunge; blade approaches the upper-right cut entrance |
+| 0.36–0.50 | One straight 45° tip path; slit opens behind the moving tip; contact burst and continuous streak emission |
+| 0.50–0.65 | Follow-through and falling sparks; the halves begin separating after 0.52 |
+| 0.65–0.80 | Calm lowered stance; each half holds 4% of viewport height from the cut, with 2° tilt |
+| 0.82–1.00 | Camera travels through the seam into the existing chat |
 
-`src/scene/choreography.ts` holds the pose curves, camera motion, cut plane, and timing. The blade and trail share the same shoulder → elbow → wrist transforms. The trail reconstructs a 40-position ring from progress samples, so scrolling backward cannot leave stale positions behind.
+`src/scene/choreography.ts` contains the C1 Hermite tip spline, monotone virtual clock, two-bone IK, blade-roll quaternion slerp and responsive layout. The contact clock slows for three virtual frames; the camera shake lasts 100 ms of virtual time. Tests project 200 progress intervals and require every tip step to be below 8% of viewport width. The actual rig and the motion-smear ghosts reconstruct the same shoulder → elbow → wrist hierarchy.
 
-The GPU particle shader evaluates position, gravity, flicker, and fade from scroll age. It draws 2,500 impact sparks plus 420 seam sparks on desktop; mobile uses 850 plus 170. The flash occupies one frame of a 12-second virtual choreography clock; camera shake spans 150 ms on that same clock. Their duration is controlled by scroll speed, and they reverse with the rest of the scene. There are no real-time impact timers. Only idle ember drift, scarf motion, flame flicker, and heat shimmer use elapsed time.
+The name has a true-white unlit front face, bevelled grey sidewalls and visible extrusion. Two opposite clipping planes use screen-space normal `(1, 1, 0)` (world-space `(1, -1, 0)`). The kerf is discarded only behind the cut front. Cut caps are built from intersections with the real glyph contours, including holes. Their emissive edges cool from white/orange to dark red over 1.2 seconds of virtual age. The orange contact light illuminates the sides, with a local warm highlight on the white face during contact.
 
-The character, blade, scarf, particle systems, and effects are original geometry/shaders. The font geometry is bundled from Three.js. Interface fonts are self-hosted through Fontsource; no remote fonts, models, textures, or image requests are required.
+Sparks use one GPU draw of **3,500 stretched quads on desktop or 1,000 on mobile**, never point sprites. Desktop emission consists of 800 contact sparks, 2,500 sparks at roughly 1,500/sec during cutting, and 200 secondary embers. A few sparks become heavier droplets. Seeded births and log-normal speeds, a 100° spray cone with blade momentum, exponential drag, gravity, a small curl term, temperature and flicker are evaluated from the virtual clock. The first burst samples one exposure interval so it reads as streaks on the contact frame. The debug report counts both living particles and those inside the camera; a separate screenshot check verifies that streak pixels really render.
+
+The original procedural figure has layered rounded armour, metallic noise bump, ember cracks, a ribbed straw hat, rope belt, articulated hands and greaves, and frayed cloth with vertex waves. Its shading uses a locally generated studio reflection environment, white/cool rim lighting and blade/contact lights. The background remains pure black, with no environment image, fog, ground, ambient specks or decorative text.
+
+Below 768px, the name stacks above the figure and the approach/recovery path adapts to the taller composition. Portrait desktop layouts scale the model to fit. Reduced motion and unavailable WebGL show only the static white name on black, followed by the unpinned chat. A focus-only skip link remains available.
+
+There are no downloaded models, images, textures, sounds or font requests. Character textures and reflection lighting are generated in code; the geometry font is bundled with Three.js and interface fonts are self-hosted.
+
+### Optional synthesized sound
+
+`useHeroAudio.ts` waits for a click/tap/key before creating an AudioContext. It synthesizes a detuned low hum, a filtered whoosh, a metallic shing, noise sizzle and bass impact. It fades out when the scene is inactive or the document is hidden. Verification/reduced-motion modes stay silent. Use `?sound=0` to opt out, or remove the single `useHeroAudio(...)` call in `App.tsx` to remove the feature. Audio one-shots fire on forward crossings; visual reversal never depends on audio timing.
+
+### Swapping in a model later
+
+`Scene` accepts an optional `characterModel` React component with the exported `CharacterProps` contract. A future local GLB adapter can use `useGLTF`, apply the `poseAt(p, layout)` joint quaternions to named bones and replace `Forgewalker` without changing scroll, text or effects. Keep the diagnostic node names (`forgewalker-hips`, `character-face`, `blade-base`, `blade-tip`, `blade-core`) if using the existing browser checks. No unused GLB is fetched.
 
 ## Accessibility and performance
 
 - DPR is capped at 1.75; mobile is capped at 1.3 with fewer particles.
 - The render loop pauses when the stage leaves the screen, the tab is hidden, or the chat fully covers the scene.
 - Reduced motion and unavailable WebGL both show a static typographic intro followed by an unpinned chat. The conversation stays fully usable.
-- Keyboard users can use the skip link, navigation, suggestion buttons, and labeled form controls. Enter sends; Shift+Enter inserts a new line; IME composition does not accidentally submit.
+- Keyboard users can use the focus-only skip link, chat tabs, suggestion buttons, and labeled form controls. Enter sends; Shift+Enter inserts a new line; IME composition does not accidentally submit.
 - The mic uses the browser’s Web Speech API on a user click. A final transcript goes into the editable text box and is never auto-submitted. Unsupported browsers can use OS keyboard dictation. Microphone support and permission vary by browser; HTTPS or localhost is required.
 - Responses are rendered as plain text. Requests are limited in size and frequency, and provider calls are canceled on disconnect.
 
@@ -100,18 +116,23 @@ npm run verify -- --production
 
 `build` type-checks both client and server, compiles the Vite frontend to `dist/`, and bundles the Express entry point to `dist-server/index.js`.
 
-`test` checks deterministic choreography, flash/shake duration, seeded particles, profile grounding, TODO handling, progressive SSE delivery, and message validation.
+The tests cover deterministic reversal, the 45° cut front, C1 path continuity, the 8% maximum tip step, IK reach, separation/cooling, contact timing, particle budgets and visible particles, plus the existing profile and streaming API tests.
 
-`verify` launches headless Chrome and creates:
+`verify` launches Chrome and writes:
 
-- `artifacts/p-0.00.png`, `p-0.20.png`, `p-0.42.png`, `p-0.60.png`, and `p-1.00.png`.
-- `artifacts/reverse-restored.png`, compared byte-for-byte with the initial screenshot.
-- Conversation, selected-work, mobile, and reduced-motion screenshots.
-- `artifacts/verification.json`, with checks, renderer counts, state snapshots, and frame timing.
+- Desktop and mobile screenshots at p = 0, 0.12, 0.22, 0.30, 0.36, 0.42, 0.50, 0.60 and 0.80, named `artifacts/reference-{1280|390}-p-{progress}.png`.
+- `artifacts/reference-sequence.png`, a labelled sheet containing all nine desktop poses.
+- Exact initial/rewound image comparisons, including the normal site without verification mode.
+- Responsive, conversation, selected-work, keyboard and fallback screenshots.
+- `artifacts/verification.json` with pixel checks, actual projected meshes, the cut front, live/visible spark counts and frame timing.
 
-On macOS the script uses the installed Google Chrome. Elsewhere, install Playwright’s Chromium with `npx playwright install chromium`, or set `CHROME_PATH` to your browser executable. Set `VERIFY_URL` to check another running origin. `--production` starts the compiled Express server on port 3002, runs the full suite against it, and stops that temporary server afterward; `VERIFY_PORT` can change that port.
+The browser suite checks that the scene holds when scrolling stops, sound is locked before a gesture, the background is black, front-face pixels are white, the face stays clear, the full figure/blade fit, the slit follows the tip, and 1,000+ desktop streaks are visible at p=0.60. A pixel check also catches missing GPU draws that particle counters alone cannot detect.
 
-The verification URL adds `?verify=1` to freeze only idle loops and decorative CSS animations. Production scroll choreography is unchanged. The small `window.__portfolio` diagnostic hook exposes progress, current scene state, and render stats for browser checks.
+On macOS it uses installed Google Chrome. Elsewhere, install Playwright Chromium or set `CHROME_PATH`. `VERIFY_URL` selects an existing server. `--production` starts the compiled Express server in deterministic profile mode on port 3002 and stops it afterward; `VERIFY_PORT` changes that port. `--capture-only` exports the nine poses for visual review and reports “captured,” never a verification pass.
+
+`?verify=1` enables expensive mesh diagnostics and disables synthesized sound. It does not substitute a different animation. `window.__portfolio` exposes scene progress, actual render statistics and `render.sparks.live` / `render.sparks.visible`.
+
+See [REFERENCE_COMPARISON.md](REFERENCE_COMPARISON.md) for the reference-frame mapping and remaining visual differences.
 
 To manually inspect a streamed answer:
 
@@ -149,18 +170,21 @@ For a reverse proxy, turn off response buffering and compression for `/api/chat`
 
 ```text
 src/
-  App.tsx                     Page, navigation, fallbacks, chat transition
-  styles.css                  Responsive charcoal / ember / gold styling
+  App.tsx                     Minimal hero, accessible skip link, fallbacks, chat transition
+  styles.css                  Black hero and fallbacks; responsive chat styling
   scene/
     Scene.tsx                 Canvas, lighting, bloom, rendering lifecycle
-    Forgewalker.tsx            Procedural joint hierarchy and scarf
-    Blade.tsx                 Curved blade, molten core, flame shader
-    FireTrail.tsx             Reconstructable 40-sample ribbon + fbm shader
-    Sparks.tsx                GPU impact and seam particles
-    SlicedName.tsx             Two text meshes, opposing clipping planes
-    Embers.tsx                 Ambient particles and wind-up attraction
-    HeatShimmer.tsx            Localized screen-space heat distortion
-    choreography.ts           Pure scroll-to-state functions
+    Forgewalker.tsx            Original layered armour, straw hat and joint hierarchy
+    Blade.tsx                 Straight red energy blade, bright core, crimson flame
+    FireTrail.tsx             Low-alpha blade motion-smear ghosts
+    Sparks.tsx                Batched GPU spark streak quads
+    particleSimulation.ts     Seeded emission and closed-form physics
+    proceduralMaterials.ts    Locally generated armour/cloth textures
+    Cloth.tsx                 Frayed progress-driven vertex waves
+    useHeroAudio.ts           Optional gesture-unlocked Web Audio synthesis
+    SlicedName.tsx             White bevelled text, moving slit and molten cut caps
+    choreography.ts           Responsive layout, IK, pure scroll-to-state functions
+    diagnostics.ts            Shared browser-verification types
     useScrollProgress.ts      The single pinned ScrollTrigger
   chat/
     ChatPanel.tsx             Streaming conversation and selected work
